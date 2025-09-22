@@ -249,8 +249,8 @@ class vit_b_16(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.model = models.vit_b_16(pretrained=True)
-        n = self.model.heads.head.in_features
+        self.model = models.vit_b_16(weights="IMAGENET1K_V1")
+        n = getattr(self.models.heads.head, "in_features")
         self.model.heads.head = nn.Linear(
             in_features=n, out_features=NUM_CLASSES, bias=True
         )
@@ -269,8 +269,8 @@ class vit_b_32(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.model = models.vit_b_32(pretrained=True)
-        n = self.model.heads.head.in_features
+        self.model = models.vit_b_32(weights="IMAGENET1K_V1")
+        n = getattr(self.model.heads, "head").in_features
         self.model.heads.head = nn.Linear(
             in_features=n, out_features=NUM_CLASSES, bias=True
         )
@@ -289,8 +289,8 @@ class vit_l_16(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.model = models.vit_l_16(pretrained=True)
-        n = self.model.heads.head.in_features
+        self.model = models.vit_l_16(weights="IMAGENET1K_V1")
+        n = getattr(self.models.heads.head, "in_features")
         self.model.heads.head = nn.Linear(
             in_features=n, out_features=NUM_CLASSES, bias=True
         )
@@ -309,8 +309,8 @@ class vit_l_32(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.model = models.vit_l_32(pretrained=True)
-        n = self.model.heads.head.in_features
+        self.model = models.vit_l_32(weights="IMAGENET1K_V1")
+        n = getattr(self.models.heads.head, "in_features")
         self.model.heads.head = nn.Linear(
             in_features=n, out_features=NUM_CLASSES, bias=True
         )
