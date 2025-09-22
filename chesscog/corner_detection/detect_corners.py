@@ -544,6 +544,6 @@ if __name__ == "__main__":
     fig = plt.figure()
     fig.suptitle("Corner detection output")
     plt.imshow(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
-    plt.scatter(*corners.T, c="r")
+    plt.scatter(*corners.T, color="r")
     plt.axis("off")
     plt.show()
