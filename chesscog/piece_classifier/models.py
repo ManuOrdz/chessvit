@@ -1,14 +1,11 @@
-"""Module containing the CNN architecture definitions of the candidate piece classifiers.
-"""
+"""Module containing the CNN architecture definitions of the candidate piece classifiers."""
 
+import torch.nn.functional as F
 from torch import nn
 from torchvision import models
-import torch.nn.functional as F
-import functools
-from recap import CfgNode as CN
 
-from chesscog.core.registry import Registry
 from chesscog.core.models import MODELS_REGISTRY
+from chesscog.core.registry import Registry
 
 NUM_CLASSES = len({"pawn", "knight", "bishop", "rook", "queen", "king"}) * 2
 
@@ -19,8 +16,7 @@ MODELS_REGISTRY.register_as("PIECE_CLASSIFIER")(MODEL_REGISTRY)
 
 @MODEL_REGISTRY.register
 class CNN100_3Conv_3Pool_3FC(nn.Module):
-    """CNN (100, 3, 3, 3) model.
-    """
+    """CNN (100, 3, 3, 3) model."""
 
     input_size = 100, 200
     pretrained = False
@@ -51,8 +47,7 @@ class CNN100_3Conv_3Pool_3FC(nn.Module):
 
 @MODEL_REGISTRY.register
 class CNN100_3Conv_3Pool_2FC(nn.Module):
-    """CNN (100, 3, 3, 2) model.
-    """
+    """CNN (100, 3, 3, 2) model."""
 
     input_size = 100, 200
     pretrained = False
@@ -81,8 +76,7 @@ class CNN100_3Conv_3Pool_2FC(nn.Module):
 
 @MODEL_REGISTRY.register
 class AlexNet(nn.Module):
-    """AlexNet model.
-    """
+    """AlexNet model."""
 
     input_size = 100, 200
     pretrained = True
@@ -92,9 +86,7 @@ class AlexNet(nn.Module):
         self.model = models.alexnet(pretrained=True)
         n = self.model.classifier[6].in_features
         self.model.classifier[6] = nn.Linear(n, NUM_CLASSES)
-        self.params = {
-            "head": list(self.model.classifier[6].parameters())
-        }
+        self.params = {"head": list(self.model.classifier[6].parameters())}
 
     def forward(self, x):
         return self.model(x)
@@ -102,8 +94,7 @@ class AlexNet(nn.Module):
 
 @MODEL_REGISTRY.register
 class ResNet(nn.Module):
-    """ResNet model.
-    """
+    """ResNet model."""
 
     input_size = 100, 200
     pretrained = True
@@ -113,9 +104,7 @@ class ResNet(nn.Module):
         self.model = models.resnet18(pretrained=True)
         n = self.model.fc.in_features
         self.model.fc = nn.Linear(n, NUM_CLASSES)
-        self.params = {
-            "head": list(self.model.fc.parameters())
-        }
+        self.params = {"head": list(self.model.fc.parameters())}
 
     def forward(self, x):
         return self.model(x)
@@ -123,8 +112,7 @@ class ResNet(nn.Module):
 
 @MODEL_REGISTRY.register
 class VGG(nn.Module):
-    """VGG model.
-    """
+    """VGG model."""
 
     input_size = 100, 200
     pretrained = True
@@ -134,9 +122,7 @@ class VGG(nn.Module):
         self.model = models.vgg11_bn(pretrained=True)
         n = self.model.classifier[6].in_features
         self.model.classifier[6] = nn.Linear(n, NUM_CLASSES)
-        self.params = {
-            "head": list(self.model.classifier[6].parameters())
-        }
+        self.params = {"head": list(self.model.classifier[6].parameters())}
 
     def forward(self, x):
         return self.model(x)
@@ -144,8 +130,7 @@ class VGG(nn.Module):
 
 @MODEL_REGISTRY.register
 class InceptionV3(nn.Module):
-    """InceptionV3 model.
-    """
+    """InceptionV3 model."""
 
     input_size = 299, 299
     pretrained = True
@@ -160,8 +145,89 @@ class InceptionV3(nn.Module):
         n = self.model.fc.in_features
         self.model.fc = nn.Linear(n, NUM_CLASSES)
         self.params = {
-            "head": list(self.model.AuxLogits.fc.parameters()) + list(self.model.fc.parameters())
+            "head": list(self.model.AuxLogits.fc.parameters())
+            + list(self.model.fc.parameters())
         }
+
+    def forward(self, x):
+        return self.model(x)
+
+
+@MODEL_REGISTRY.register
+class vit_b_16(nn.Module):
+    "Vision Transformer model."
+
+    input_size = 224, 224
+    pretrained = True
+
+    def __init__(self):
+        super().__init__()
+        self.model = models.vit_b_16(pretrained=True)
+        n = self.model.heads.head.in_features
+        self.model.heads.head = nn.Linear(
+            in_features=n, out_features=NUM_CLASSES, bias=True
+        )
+        self.params = {"head": list(self.model.heads.head.parameters())}
+
+    def forward(self, x):
+        return self.model(x)
+
+
+@MODEL_REGISTRY.register
+class vit_b_32(nn.Module):
+    "Vision Transformer model."
+
+    input_size = 224, 224
+    pretrained = True
+
+    def __init__(self):
+        super().__init__()
+        self.model = models.vit_b_32(pretrained=True)
+        n = self.model.heads.head.in_features
+        self.model.heads.head = nn.Linear(
+            in_features=n, out_features=NUM_CLASSES, bias=True
+        )
+        self.params = {"head": list(self.model.heads.head.parameters())}
+
+    def forward(self, x):
+        return self.model(x)
+
+
+@MODEL_REGISTRY.register
+class vit_l_16(nn.Module):
+    "Vision Transformer model."
+
+    input_size = 224, 224
+    pretrained = True
+
+    def __init__(self):
+        super().__init__()
+        self.model = models.vit_l_16(pretrained=True)
+        n = self.model.heads.head.in_features
+        self.model.heads.head = nn.Linear(
+            in_features=n, out_features=NUM_CLASSES, bias=True
+        )
+        self.params = {"head": list(self.model.heads.head.parameters())}
+
+    def forward(self, x):
+        return self.model(x)
+
+
+@MODEL_REGISTRY.register
+class vit_l_32(nn.Module):
+    "Vision Transformer model."
+
+    input_size = 224, 224
+    pretrained = True
+
+    def __init__(self):
+        super().__init__()
+        self.model = models.vit_l_32(pretrained=True)
+        n = self.model.heads.head.in_features
+        self.model.heads.head = nn.Linear(
+            in_features=n, out_features=NUM_CLASSES, bias=True
+        )
+        self.params = {"head": list(self.model.heads.head.parameters())}
 
     def forward(self, x):
         return self.model(x)
