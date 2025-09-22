@@ -1,0 +1,11 @@
+DATASET:
+  TRANSFORMS:
+    CENTER_CROP: null
+    RESIZE:
+    - 224
+    - 224
+TRAINING:
+  MODEL:
+    NAME: vit_b_16
+    REGISTRY: PIECE_CLASSIFIER
+_BASE_: config://piece_classifier/_base_pretrained.yaml
