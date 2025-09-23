@@ -19,6 +19,12 @@ DATASET:
       VERTICAL: null
       HORIZONTAL: null
   CLASSES: []
+  PHASES:
+    - PARAMS: all
+      EPOCHS: 3
+      OPTIMIZER:
+        NAME: Adam
+        LEARNING_RATE: 0.001
 
 TRAINING:
   MODEL:
