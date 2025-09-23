@@ -6,7 +6,7 @@ authors = [
     {name = "Manuel Ordoñez",email = "manuelordzslv@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.10,<3.12"
+requires-python = ">=3.10,<3.13"
 
 
 [tool.poetry]
