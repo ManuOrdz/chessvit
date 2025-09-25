@@ -1,24 +1,22 @@
-"""Main implementation of model training.
-"""
+"""Main implementation of model training."""
 
+import functools
+import logging
+import shutil
+import typing
+from pathlib import Path
+
+import numpy as np
 import torch
+from recap import CfgNode as CN
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
-import torchvision
-import numpy as np
-from pathlib import Path
-import logging
-import typing
-import copy
-import functools
-import shutil
-from recap import CfgNode as CN
 
 from chesscog.core import device
-from chesscog.core.training import build_optimizer_from_config
-from chesscog.core.statistics import StatsAggregator
-from chesscog.core.dataset import build_dataset, build_data_loader, Datasets
+from chesscog.core.dataset import Datasets, build_data_loader, build_dataset
 from chesscog.core.models import build_model
+from chesscog.core.statistics import StatsAggregator
+from chesscog.core.training import build_optimizer_from_config
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +36,14 @@ def train(cfg: CN, run_dir: Path) -> nn.Module:
     train_model(cfg, run_dir, model, is_inception)
 
 
-def train_model(cfg: CN, run_dir: Path, model: torch.nn.Module, is_inception: bool = False, model_name: str = None, eval_on_train: bool = False) -> nn.Module:
+def train_model(
+    cfg: CN,
+    run_dir: Path,
+    model: torch.nn.Module,
+    is_inception: bool = False,
+    model_name: str = None,
+    eval_on_train: bool = False,
+) -> nn.Module:
     """Train a model that has already been loaded.
 
     Args:
@@ -59,7 +64,8 @@ def train_model(cfg: CN, run_dir: Path, model: torch.nn.Module, is_inception: bo
     # Create folder
     if run_dir.exists():
         logger.warning(
-            f"The folder {run_dir} already exists and will be overwritten by this run")
+            f"The folder {run_dir} already exists and will be overwritten by this run"
+        )
         shutil.rmtree(run_dir, ignore_errors=True)
     run_dir.mkdir(parents=True, exist_ok=True)
 
@@ -70,26 +76,22 @@ def train_model(cfg: CN, run_dir: Path, model: torch.nn.Module, is_inception: bo
     # Move model to device
     device(model)
 
-    best_weights, best_accuracy, best_step = copy.deepcopy(
-        model.state_dict()), 0., 0
+    # Best weights (avoid deepcopy overhead)
+    best_weights = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+    best_accuracy, best_step = 0.0, 0
 
     criterion = nn.CrossEntropyLoss()
 
     modes = {Datasets.TRAIN, Datasets.VAL}
     if eval_on_train:
         dataset = build_dataset(cfg, Datasets.TRAIN)
-        datasets = {mode: dataset
-                    for mode in modes}
+        datasets = {mode: dataset for mode in modes}
     else:
-        datasets = {mode: build_dataset(cfg, mode)
-                    for mode in modes}
+        datasets = {mode: build_dataset(cfg, mode) for mode in modes}
     classes = datasets[Datasets.TRAIN].classes
-    loader = {mode: build_data_loader(cfg, datasets[mode], mode)
-              for mode in modes}
-    writer = {mode: SummaryWriter(run_dir / mode.value)
-              for mode in modes}
-    aggregator = {mode: StatsAggregator(classes)
-                  for mode in modes}
+    loader = {mode: build_data_loader(cfg, datasets[mode], mode) for mode in modes}
+    writer = {mode: SummaryWriter(run_dir / mode.value) for mode in modes}
+    aggregator = {mode: StatsAggregator(classes) for mode in modes}
 
     def log(step: int, loss: float, mode: Datasets):
         if mode == Datasets.TRAIN:
@@ -104,11 +106,13 @@ def train_model(cfg: CN, run_dir: Path, model: torch.nn.Module, is_inception: bo
             w.add_scalar(f"Recall/{c}", agg.recall(c), step)
             w.add_scalar(f"F1 score/{c}", agg.f1_score(c), step)
 
-    def perform_iteration(data: typing.Tuple[torch.Tensor, torch.Tensor], mode: Datasets):
+    def perform_iteration(
+        data: typing.Tuple[torch.Tensor, torch.Tensor], mode: Datasets
+    ):
         inputs, labels = map(device, data)
         with torch.set_grad_enabled(mode == Datasets.TRAIN):
             # Reset gradients
-            optimizer.zero_grad()
+            optimizer.zero_grad(set_to_none=True)
 
             # Forward pass and compute loss
             if is_inception and mode == Datasets.TRAIN:
@@ -116,7 +120,7 @@ def train_model(cfg: CN, run_dir: Path, model: torch.nn.Module, is_inception: bo
                 outputs, auxiliary_outputs = model(inputs)
                 loss1 = criterion(outputs, labels)
                 loss2 = criterion(auxiliary_outputs, labels)
-                loss = loss1 + 0.4*loss2
+                loss = loss1 + 0.4 * loss2
             else:
                 outputs = model(inputs)
                 loss = criterion(outputs, labels)
@@ -124,7 +128,7 @@ def train_model(cfg: CN, run_dir: Path, model: torch.nn.Module, is_inception: bo
             if mode == Datasets.TRAIN:
                 loss.backward()
 
-        with torch.no_grad():
+        with torch.inference_mode():
             aggregator[mode].add_batch(outputs, labels)
 
         # Perform optimisation
@@ -142,15 +146,16 @@ def train_model(cfg: CN, run_dir: Path, model: torch.nn.Module, is_inception: bo
 
     # Loop over training phases
     for phase in cfg.TRAINING.PHASES:
-
         for p in model.parameters():
             p.requires_grad = False
-        parameters = list(model.parameters()) if phase.PARAMS == "all" \
+        parameters = (
+            list(model.parameters())
+            if phase.PARAMS == "all"
             else model.params[phase.PARAMS]
+        )
         for p in parameters:
             p.requires_grad = True
-        optimizer = build_optimizer_from_config(phase.OPTIMIZER,
-                                                parameters)
+        optimizer = build_optimizer_from_config(phase.OPTIMIZER, parameters)
 
         # Loop over epochs (passes over the whole dataset)
         for epoch in range(phase.EPOCHS):
@@ -159,7 +164,6 @@ def train_model(cfg: CN, run_dir: Path, model: torch.nn.Module, is_inception: bo
             # Iterate the training set
             losses = []
             for i, data in enumerate(loader[Datasets.TRAIN]):
-
                 # Perform training iteration
                 losses.append(perform_iteration(data, mode=Datasets.TRAIN))
 
@@ -174,10 +178,10 @@ def train_model(cfg: CN, run_dir: Path, model: torch.nn.Module, is_inception: bo
                     aggregator[Datasets.VAL].reset()
 
                     # Iterate entire val dataset
-                    perform_val_iteration = functools.partial(perform_iteration,
-                                                              mode=Datasets.VAL)
-                    val_losses = map(perform_val_iteration,
-                                     loader[Datasets.VAL])
+                    perform_val_iteration = functools.partial(
+                        perform_iteration, mode=Datasets.VAL
+                    )
+                    val_losses = map(perform_val_iteration, loader[Datasets.VAL])
 
                     # Gather losses and log
                     val_loss = np.mean(list(val_losses))
@@ -188,7 +192,9 @@ def train_model(cfg: CN, run_dir: Path, model: torch.nn.Module, is_inception: bo
                 accuracy = aggregator[Datasets.VAL].accuracy()
                 if accuracy >= best_accuracy:
                     best_accuracy = accuracy
-                    best_weights = copy.deepcopy(model.state_dict())
+                    best_weights = {
+                        k: v.cpu().clone() for k, v in model.state_dict().items()
+                    }
                     best_step = step
 
                 # Get ready for next step
@@ -202,7 +208,8 @@ def train_model(cfg: CN, run_dir: Path, model: torch.nn.Module, is_inception: bo
     logger.info("Finished training")
 
     logger.info(
-        f"Restoring best weight state (step {best_step} with validation accuracy of {best_accuracy})")
+        f"Restoring best weight state (step {best_step} with validation accuracy of {best_accuracy})"
+    )
     model.load_state_dict(best_weights)
     torch.save(model, run_dir / f"{model_name}.pt")
     with (run_dir / f"{model_name}.txt").open("w") as f:
