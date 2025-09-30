@@ -5,7 +5,7 @@ DATASET:
   CLASSES:
     - empty
     - occupied
-  BATCH_SIZE: 64
+  BATCH_SIZE: 32
   TRANSFORMS:
     CENTER_CROP: [100, 100]
     RESIZE: [100, 100]
