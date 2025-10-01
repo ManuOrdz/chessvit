@@ -6,6 +6,6 @@ DATASET:
     - 224
 TRAINING:
   MODEL:
-    NAME: vit_l_32
+    NAME: VITL16
     REGISTRY: PIECE_CLASSIFIER
 _BASE_: config://piece_classifier/_base_pretrained.yaml

@@ -6,6 +6,6 @@ DATASET:
     - 224
 TRAINING:
   MODEL:
-    NAME: vit_b_16
+    NAME: VITB16
     REGISTRY: OCCUPANCY_CLASSIFIER
 _BASE_: config://occupancy_classifier/_base_pretrained.yaml
