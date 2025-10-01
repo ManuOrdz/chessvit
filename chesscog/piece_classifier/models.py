@@ -154,8 +154,8 @@ class InceptionV3(nn.Module):
 
 
 @MODEL_REGISTRY.register
-class vit_b_16(nn.Module):
-    "Vision Transformer model."
+class VITB16(nn.Module):
+    "Vision Transformer Base model."
 
     input_size = 224, 224
     pretrained = True
@@ -174,28 +174,8 @@ class vit_b_16(nn.Module):
 
 
 @MODEL_REGISTRY.register
-class vit_b_32(nn.Module):
-    "Vision Transformer model."
-
-    input_size = 224, 224
-    pretrained = True
-
-    def __init__(self):
-        super().__init__()
-        self.model = models.vit_b_32(weights="IMAGENET1K_V1")
-        n = getattr(self.model.heads, "head").in_features
-        self.model.heads.head = nn.Linear(
-            in_features=n, out_features=NUM_CLASSES, bias=True
-        )
-        self.params = {"head": list(getattr(self.model.heads, "head").parameters())}
-
-    def forward(self, x):
-        return self.model(x)
-
-
-@MODEL_REGISTRY.register
-class vit_l_16(nn.Module):
-    "Vision Transformer model."
+class VITL16(nn.Module):
+    "Vision Transformer Large model."
 
     input_size = 224, 224
     pretrained = True
@@ -203,26 +183,6 @@ class vit_l_16(nn.Module):
     def __init__(self):
         super().__init__()
         self.model = models.vit_l_16(weights="IMAGENET1K_V1")
-        n = getattr(self.model.heads.head, "in_features")
-        self.model.heads.head = nn.Linear(
-            in_features=n, out_features=NUM_CLASSES, bias=True
-        )
-        self.params = {"head": list(getattr(self.model.heads, "head").parameters())}
-
-    def forward(self, x):
-        return self.model(x)
-
-
-@MODEL_REGISTRY.register
-class vit_l_32(nn.Module):
-    "Vision Transformer model."
-
-    input_size = 224, 224
-    pretrained = True
-
-    def __init__(self):
-        super().__init__()
-        self.model = models.vit_l_32(weights="IMAGENET1K_V1")
         n = getattr(self.model.heads.head, "in_features")
         self.model.heads.head = nn.Linear(
             in_features=n, out_features=NUM_CLASSES, bias=True

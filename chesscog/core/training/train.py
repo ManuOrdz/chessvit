@@ -1,5 +1,6 @@
 """Main implementation of model training."""
 
+import copy
 import functools
 import logging
 import shutil
@@ -76,9 +77,7 @@ def train_model(
     # Move model to device
     device(model)
 
-    # Best weights (avoid deepcopy overhead)
-    best_weights = {k: v.cpu().clone() for k, v in model.state_dict().items()}
-    best_accuracy, best_step = 0.0, 0
+    best_weights, best_accuracy, best_step = copy.deepcopy(model.state_dict()), 0.0, 0
 
     criterion = nn.CrossEntropyLoss()
 
@@ -112,7 +111,7 @@ def train_model(
         inputs, labels = map(device, data)
         with torch.set_grad_enabled(mode == Datasets.TRAIN):
             # Reset gradients
-            optimizer.zero_grad(set_to_none=True)
+            optimizer.zero_grad()
 
             # Forward pass and compute loss
             if is_inception and mode == Datasets.TRAIN:
@@ -128,7 +127,7 @@ def train_model(
             if mode == Datasets.TRAIN:
                 loss.backward()
 
-        with torch.inference_mode():
+        with torch.no_grad():
             aggregator[mode].add_batch(outputs, labels)
 
         # Perform optimisation
@@ -192,9 +191,7 @@ def train_model(
                 accuracy = aggregator[Datasets.VAL].accuracy()
                 if accuracy >= best_accuracy:
                     best_accuracy = accuracy
-                    best_weights = {
-                        k: v.cpu().clone() for k, v in model.state_dict().items()
-                    }
+                    best_weights = copy.deepcopy(model.state_dict())
                     best_step = step
 
                 # Get ready for next step
