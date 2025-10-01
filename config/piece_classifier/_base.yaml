@@ -15,7 +15,7 @@ DATASET:
     - white_pawn
     - white_queen
     - white_rook
-  BATCH_SIZE: 4
+  BATCH_SIZE: 16
   TRANSFORMS:
     CENTER_CROP: null
     RESIZE: [100, 200]
