@@ -195,7 +195,7 @@ class AlexNet(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.model = models.alexnet(pretrained=True)
+        self.model = models.alexnet(weights="DEFAULT")
         n = self.model.classifier[6].in_features
         self.model.classifier[6] = nn.Linear(n, NUM_CLASSES)
         self.params = {"head": list(self.model.classifier[6].parameters())}
@@ -213,7 +213,7 @@ class ResNet(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.model = models.resnet18(pretrained=True)
+        self.model = models.resnet18(weights="DEFAULT")
         n = self.model.fc.in_features
         self.model.fc = nn.Linear(n, NUM_CLASSES)
         self.params = {"head": list(self.model.fc.parameters())}
@@ -231,7 +231,7 @@ class VGG(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.model = models.vgg11_bn(pretrained=True)
+        self.model = models.vgg11_bn(weights="DEFAULT")
         n = self.model.classifier[6].in_features
         self.model.classifier[6] = nn.Linear(n, NUM_CLASSES)
         self.params = {"head": list(self.model.classifier[6].parameters())}
@@ -249,8 +249,8 @@ class VITB16(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.model = models.vit_b_16(weights="IMAGENET1K_V1")
-        n = getattr(self.model.heads.head, "in_features")
+        self.model = models.vit_b_16(weights="DEFAULT")
+        n = self.model.heads.head.in_features
         self.model.heads.head = nn.Linear(
             in_features=n, out_features=NUM_CLASSES, bias=True
         )
@@ -269,8 +269,8 @@ class VITL16(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.model = models.vit_l_16(weights="IMAGENET1K_V1")
-        n = getattr(self.model.heads.head, "in_features")
+        self.model = models.vit_l_16(weights="DEFAULT")
+        n = self.model.heads.head.in_features
         self.model.heads.head = nn.Linear(
             in_features=n, out_features=NUM_CLASSES, bias=True
         )
