@@ -6,12 +6,12 @@ This module simultaneously acts as a script to perform a single inference:
 
     $ python -m chesscog.recognition.recognition --help
     usage: recognition.py [-h] [--white] [--black] file
-    
+
     Run the chess recognition pipeline on an input image
-    
+
     positional arguments:
       file        path to the input image
-    
+
     optional arguments:
       -h, --help  show this help message and exit
       --white     indicate that the image is from the white player's
@@ -20,24 +20,25 @@ This module simultaneously acts as a script to perform a single inference:
                   perspective
 """
 
-import numpy as np
-import chess
-from chess import Status
-from pathlib import Path
-import torch
-from PIL import Image
-import functools
-import cv2
 import argparse
+import functools
 import typing
-from recap import URI, CfgNode as CN
+from pathlib import Path
 
+import chess
+import cv2
+import numpy as np
+import torch
+from chess import Status
+from PIL import Image
+from recap import URI
+from recap import CfgNode as CN
+
+from chesscog.core import DEVICE, device
+from chesscog.core.dataset import Datasets, build_transforms, name_to_piece
 from chesscog.corner_detection import find_corners, resize_image
 from chesscog.occupancy_classifier import create_dataset as create_occupancy_dataset
 from chesscog.piece_classifier import create_dataset as create_piece_dataset
-from chesscog.core import device, DEVICE
-from chesscog.core.dataset import build_transforms, Datasets
-from chesscog.core.dataset import name_to_piece
 
 
 class ChessRecognizer:
@@ -55,34 +56,41 @@ class ChessRecognizer:
             classifiers_folder (Path, optional): the path to the classifiers (supplying a different path is especially useful because the transfer learning classifiers are located at ``models://transfer_learning``). Defaults to ``models://``.
         """
         self._corner_detection_cfg = CN.load_yaml_with_base(
-            "config://corner_detection.yaml")
+            "config://corner_detection.yaml"
+        )
 
         self._occupancy_cfg, self._occupancy_model = self._load_classifier(
-            classifiers_folder / "occupancy_classifier")
+            classifiers_folder / "occupancy_classifier"
+        )
         self._occupancy_transforms = build_transforms(
-            self._occupancy_cfg, mode=Datasets.TEST)
+            self._occupancy_cfg, mode=Datasets.TEST
+        )
         self._pieces_cfg, self._pieces_model = self._load_classifier(
-            classifiers_folder / "piece_classifier")
-        self._pieces_transforms = build_transforms(
-            self._pieces_cfg, mode=Datasets.TEST)
-        self._piece_classes = np.array(list(map(name_to_piece,
-                                                self._pieces_cfg.DATASET.CLASSES)))
+            classifiers_folder / "piece_classifier"
+        )
+        self._pieces_transforms = build_transforms(self._pieces_cfg, mode=Datasets.TEST)
+        self._piece_classes = np.array(
+            list(map(name_to_piece, self._pieces_cfg.DATASET.CLASSES))
+        )
 
     @classmethod
     def _load_classifier(cls, path: Path):
         model_file = next(iter(path.glob("*.pt")))
         yaml_file = next(iter(path.glob("*.yaml")))
         cfg = CN.load_yaml_with_base(yaml_file)
-        model = torch.load(model_file, map_location=DEVICE)
+        model = torch.load(model_file, map_location=DEVICE, weights_only=False)
         model = device(model)
         model.eval()
         return cfg, model
 
-    def _classify_occupancy(self, img: np.ndarray, turn: chess.Color, corners: np.ndarray) -> np.ndarray:
-        warped = create_occupancy_dataset.warp_chessboard_image(
-            img, corners)
-        square_imgs = map(functools.partial(
-            create_occupancy_dataset.crop_square, warped, turn=turn), self._squares)
+    def _classify_occupancy(
+        self, img: np.ndarray, turn: chess.Color, corners: np.ndarray
+    ) -> np.ndarray:
+        warped = create_occupancy_dataset.warp_chessboard_image(img, corners)
+        square_imgs = map(
+            functools.partial(create_occupancy_dataset.crop_square, warped, turn=turn),
+            self._squares,
+        )
         square_imgs = map(Image.fromarray, square_imgs)
         square_imgs = map(self._occupancy_transforms, square_imgs)
         square_imgs = list(square_imgs)
@@ -90,16 +98,24 @@ class ChessRecognizer:
         square_imgs = device(square_imgs)
         occupancy = self._occupancy_model(square_imgs)
         occupancy = occupancy.argmax(
-            axis=-1) == self._occupancy_cfg.DATASET.CLASSES.index("occupied")
+            axis=-1
+        ) == self._occupancy_cfg.DATASET.CLASSES.index("occupied")
         occupancy = occupancy.cpu().numpy()
         return occupancy
 
-    def _classify_pieces(self, img: np.ndarray, turn: chess.Color, corners: np.ndarray, occupancy: np.ndarray) -> np.ndarray:
+    def _classify_pieces(
+        self,
+        img: np.ndarray,
+        turn: chess.Color,
+        corners: np.ndarray,
+        occupancy: np.ndarray,
+    ) -> np.ndarray:
         occupied_squares = np.array(self._squares)[occupancy]
-        warped = create_piece_dataset.warp_chessboard_image(
-            img, corners)
-        piece_imgs = map(functools.partial(
-            create_piece_dataset.crop_square, warped, turn=turn), occupied_squares)
+        warped = create_piece_dataset.warp_chessboard_image(img, corners)
+        piece_imgs = map(
+            functools.partial(create_piece_dataset.crop_square, warped, turn=turn),
+            occupied_squares,
+        )
         piece_imgs = map(Image.fromarray, piece_imgs)
         piece_imgs = map(self._pieces_transforms, piece_imgs)
         piece_imgs = list(piece_imgs)
@@ -112,7 +128,9 @@ class ChessRecognizer:
         all_pieces[occupancy] = pieces
         return all_pieces
 
-    def predict(self, img: np.ndarray, turn: chess.Color = chess.WHITE) -> typing.Tuple[chess.Board, np.ndarray]:
+    def predict(
+        self, img: np.ndarray, turn: chess.Color = chess.WHITE
+    ) -> typing.Tuple[chess.Board, np.ndarray]:
         """Perform an inference.
 
         Args:
@@ -138,10 +156,11 @@ class ChessRecognizer:
 
 
 class TimedChessRecognizer(ChessRecognizer):
-    """A subclass of :class:`ChessRecognizer` that additionally records the time taken for each step of the pipeline during inference.
-    """
+    """A subclass of :class:`ChessRecognizer` that additionally records the time taken for each step of the pipeline during inference."""
 
-    def predict(self, img: np.ndarray, turn: chess.Color = chess.WHITE) -> typing.Tuple[chess.Board, np.ndarray, dict]:
+    def predict(
+        self, img: np.ndarray, turn: chess.Color = chess.WHITE
+    ) -> typing.Tuple[chess.Board, np.ndarray, dict]:
         """Perform an inference.
 
         Args:
@@ -153,6 +172,7 @@ class TimedChessRecognizer(ChessRecognizer):
         """
 
         from timeit import default_timer as timer
+
         with torch.no_grad():
             t1 = timer()
             img, img_scale = resize_image(self._corner_detection_cfg, img)
@@ -173,10 +193,10 @@ class TimedChessRecognizer(ChessRecognizer):
             t5 = timer()
 
             times = {
-                "corner_detection": t2-t1,
-                "occupancy_classification": t3-t2,
-                "piece_classification": t4-t3,
-                "prepare_results": t5-t4
+                "corner_detection": t2 - t1,
+                "occupancy_classification": t3 - t2,
+                "piece_classification": t4 - t3,
+                "prepare_results": t5 - t4,
             }
 
             return board, corners, times
@@ -191,12 +211,21 @@ def main(classifiers_folder: Path = URI("models://"), setup: callable = lambda: 
     """
 
     parser = argparse.ArgumentParser(
-        description="Run the chess recognition pipeline on an input image")
+        description="Run the chess recognition pipeline on an input image"
+    )
     parser.add_argument("file", help="path to the input image", type=str)
     parser.add_argument(
-        "--white", help="indicate that the image is from the white player's perspective (default)", action="store_true", dest="color")
+        "--white",
+        help="indicate that the image is from the white player's perspective (default)",
+        action="store_true",
+        dest="color",
+    )
     parser.add_argument(
-        "--black", help="indicate that the image is from the black player's perspective", action="store_false", dest="color")
+        "--black",
+        help="indicate that the image is from the black player's perspective",
+        action="store_false",
+        dest="color",
+    )
     parser.set_defaults(color=True)
     args = parser.parse_args()
 
@@ -211,17 +240,28 @@ def main(classifiers_folder: Path = URI("models://"), setup: callable = lambda: 
     print(board)
     print()
     print(
-        f"You can view this position at https://lichess.org/editor/{board.board_fen()}")
+        f"You can view this position at https://lichess.org/editor/{board.board_fen()}"
+    )
 
     if board.status() != Status.VALID:
         print()
-        print("WARNING: The predicted chess position is not legal according to the rules of chess.")
+        print(
+            "WARNING: The predicted chess position is not legal according to the rules of chess."
+        )
         print("         You might want to try again with another picture.")
 
 
 if __name__ == "__main__":
-    from chesscog.occupancy_classifier.download_model import ensure_model as ensure_occupancy_classifier
-    from chesscog.piece_classifier.download_model import ensure_model as ensure_piece_classifier
+    from chesscog.occupancy_classifier.download_model import (
+        ensure_model as ensure_occupancy_classifier,
+    )
+    from chesscog.piece_classifier.download_model import (
+        ensure_model as ensure_piece_classifier,
+    )
 
-    main(setup=lambda: [ensure_model(show_size=True)
-                        for ensure_model in (ensure_occupancy_classifier, ensure_piece_classifier)])
+    main(
+        setup=lambda: [
+            ensure_model(show_size=True)
+            for ensure_model in (ensure_occupancy_classifier, ensure_piece_classifier)
+        ]
+    )

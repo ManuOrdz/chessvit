@@ -9,24 +9,22 @@ Note that script is different to :mod:`chesscog.core.piece_classifier.create_dat
 
     $ python -m chesscog.piece_classifier.create_dataet --help p
     usage: create_dataset.py [-h]
-    
+
     Create the dataset for piece classification.
-    
+
     optional arguments:
       -h, --help  show this help message and exit
 """
 
-from pathlib import Path
-import matplotlib.pyplot as plt
-import cv2
-from PIL import Image, ImageDraw
-import json
-import numpy as np
-import chess
-import os
-import shutil
-from recap import URI
 import argparse
+import json
+from pathlib import Path
+
+import chess
+import cv2
+import numpy as np
+from PIL import Image
+from recap import URI
 
 from chesscog.core import sort_corner_points
 from chesscog.core.dataset import piece_name
@@ -38,7 +36,7 @@ BOARD_SIZE = 8 * SQUARE_SIZE
 IMG_SIZE = BOARD_SIZE * 2
 MARGIN = (IMG_SIZE - BOARD_SIZE) / 2
 MIN_HEIGHT_INCREASE, MAX_HEIGHT_INCREASE = 1, 3
-MIN_WIDTH_INCREASE, MAX_WIDTH_INCREASE = .25, 1
+MIN_WIDTH_INCREASE, MAX_WIDTH_INCREASE = 0.25, 1
 OUT_WIDTH = int((1 + MAX_WIDTH_INCREASE) * SQUARE_SIZE)
 OUT_HEIGHT = int((1 + MAX_HEIGHT_INCREASE) * SQUARE_SIZE)
 
@@ -61,23 +59,32 @@ def crop_square(img: np.ndarray, square: chess.Square, turn: chess.Color) -> np.
         row, col = 7 - rank, file
     else:
         row, col = rank, 7 - file
-    height_increase = MIN_HEIGHT_INCREASE + \
-        (MAX_HEIGHT_INCREASE - MIN_HEIGHT_INCREASE) * ((7 - row) / 7)
-    left_increase = 0 if col >= 4 else MIN_WIDTH_INCREASE + \
-        (MAX_WIDTH_INCREASE - MIN_WIDTH_INCREASE) * ((3 - col) / 3)
-    right_increase = 0 if col < 4 else MIN_WIDTH_INCREASE + \
-        (MAX_WIDTH_INCREASE - MIN_WIDTH_INCREASE) * ((col - 4) / 3)
+    height_increase = MIN_HEIGHT_INCREASE + (
+        MAX_HEIGHT_INCREASE - MIN_HEIGHT_INCREASE
+    ) * ((7 - row) / 7)
+    left_increase = (
+        0
+        if col >= 4
+        else MIN_WIDTH_INCREASE
+        + (MAX_WIDTH_INCREASE - MIN_WIDTH_INCREASE) * ((3 - col) / 3)
+    )
+    right_increase = (
+        0
+        if col < 4
+        else MIN_WIDTH_INCREASE
+        + (MAX_WIDTH_INCREASE - MIN_WIDTH_INCREASE) * ((col - 4) / 3)
+    )
     x1 = int(MARGIN + SQUARE_SIZE * (col - left_increase))
     x2 = int(MARGIN + SQUARE_SIZE * (col + 1 + right_increase))
     y1 = int(MARGIN + SQUARE_SIZE * (row - height_increase))
     y2 = int(MARGIN + SQUARE_SIZE * (row + 1))
-    width = x2-x1
-    height = y2-y1
+    width = x2 - x1
+    height = y2 - y1
     cropped_piece = img[y1:y2, x1:x2]
     if col < 4:
         cropped_piece = cv2.flip(cropped_piece, 1)
     result = np.zeros((OUT_HEIGHT, OUT_WIDTH, 3), dtype=cropped_piece.dtype)
-    result[OUT_HEIGHT - height:, :width] = cropped_piece
+    result[OUT_HEIGHT - height :, :width] = cropped_piece
     return result
 
 
@@ -95,17 +102,22 @@ def warp_chessboard_image(img: np.ndarray, corners: np.ndarray) -> np.ndarray:
     """
 
     src_points = sort_corner_points(corners)
-    dst_points = np.array([[MARGIN, MARGIN],  # top left
-                           [BOARD_SIZE + MARGIN, MARGIN],  # top right
-                           [BOARD_SIZE + MARGIN, \
-                            BOARD_SIZE + MARGIN],  # bottom right
-                           [MARGIN, BOARD_SIZE + MARGIN]  # bottom left
-                           ], dtype=np.float32)
+    dst_points = np.array(
+        [
+            [MARGIN, MARGIN],  # top left
+            [BOARD_SIZE + MARGIN, MARGIN],  # top right
+            [BOARD_SIZE + MARGIN, BOARD_SIZE + MARGIN],  # bottom right
+            [MARGIN, BOARD_SIZE + MARGIN],  # bottom left
+        ],
+        dtype=np.float32,
+    )
     transformation_matrix, mask = cv2.findHomography(src_points, dst_points)
     return cv2.warpPerspective(img, transformation_matrix, (IMG_SIZE, IMG_SIZE))
 
 
-def _extract_squares_from_sample(id: str, subset: str = "", input_dir: Path = RENDERS_DIR, output_dir: Path = OUT_DIR):
+def _extract_squares_from_sample(
+    id: str, subset: str = "", input_dir: Path = RENDERS_DIR, output_dir: Path = OUT_DIR
+):
     img = cv2.imread(str(input_dir / subset / (id + ".png")))
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     with (input_dir / subset / (id + ".json")).open("r") as f:
@@ -118,9 +130,13 @@ def _extract_squares_from_sample(id: str, subset: str = "", input_dir: Path = RE
 
     for square, piece in board.piece_map().items():
         piece_img = crop_square(unwarped, square, label["white_turn"])
-        with Image.fromarray(piece_img, "RGB") as piece_img:
-            piece_img.save(output_dir / subset / piece_name(piece) /
-                           f"{id}_{chess.square_name(square)}.png")
+        with Image.fromarray(piece_img) as piece_img:
+            piece_img.save(
+                output_dir
+                / subset
+                / piece_name(piece)
+                / f"{id}_{chess.square_name(square)}.png"
+            )
 
 
 def _create_folders(subset: str, output_dir: Path):
@@ -144,12 +160,12 @@ def create_dataset(input_dir: Path = RENDERS_DIR, output_dir: Path = OUT_DIR):
         samples = list((input_dir / subset).glob("*.png"))
         for i, img_file in enumerate(samples):
             if len(samples) > 100 and i % int(len(samples) / 100) == 0:
-                print(f"{i / len(samples)*100:.0f}%")
-            _extract_squares_from_sample(
-                img_file.stem, subset, input_dir, output_dir)
+                print(f"{i / len(samples) * 100:.0f}%")
+            _extract_squares_from_sample(img_file.stem, subset, input_dir, output_dir)
 
 
 if __name__ == "__main__":
     argparse.ArgumentParser(
-        description="Create the dataset for piece classification.").parse_args()
+        description="Create the dataset for piece classification."
+    ).parse_args()
     create_dataset()
