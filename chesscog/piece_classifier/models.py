@@ -13,85 +13,6 @@ MODEL_REGISTRY = Registry()
 MODELS_REGISTRY.register_as("PIECE_CLASSIFIER")(MODEL_REGISTRY)
 
 
-# @MODEL_REGISTRY.register
-# class CNN100_3Conv_3Pool_3FC(nn.Module):
-#     """CNN (100, 3, 3, 3) model."""
-#
-#     input_size = 100, 200
-#     pretrained = False
-#
-#     def __init__(self):
-#         super().__init__()
-#         # Input size: 100x200
-#         self.conv1 = nn.Conv2d(3, 16, 5)  # 96x196
-#         self.pool1 = nn.MaxPool2d(2, 2)  # 48x98
-#         self.conv2 = nn.Conv2d(16, 32, 5)  # 44x94
-#         self.pool2 = nn.MaxPool2d(2, 2)  # 22x47
-#         self.conv3 = nn.Conv2d(32, 64, 3)  # 20x45
-#         self.pool3 = nn.MaxPool2d(2, 2)  # 10x22
-#         self.fc1 = nn.Linear(64 * 10 * 22, 1000)
-#         self.fc2 = nn.Linear(1000, 256)
-#         self.fc3 = nn.Linear(256, NUM_CLASSES)
-#
-#     def forward(self, x):
-#         x = self.pool1(F.relu(self.conv1(x)))
-#         x = self.pool2(F.relu(self.conv2(x)))
-#         x = self.pool3(F.relu(self.conv3(x)))
-#         x = x.view(-1, 64 * 10 * 22)
-#         x = F.relu(self.fc1(x))
-#         x = F.relu(self.fc2(x))
-#         x = self.fc3(x)
-#         return x
-#
-#
-# @MODEL_REGISTRY.register
-# class CNN100_3Conv_3Pool_2FC(nn.Module):
-#     """CNN (100, 3, 3, 2) model."""
-#
-#     input_size = 100, 200
-#     pretrained = False
-#
-#     def __init__(self):
-#         super().__init__()
-#         # Input size: 100x100
-#         self.conv1 = nn.Conv2d(3, 16, 5)  # 96x196
-#         self.pool1 = nn.MaxPool2d(2, 2)  # 48x98
-#         self.conv2 = nn.Conv2d(16, 32, 5)  # 44x94
-#         self.pool2 = nn.MaxPool2d(2, 2)  # 22x47
-#         self.conv3 = nn.Conv2d(32, 64, 3)  # 20x45
-#         self.pool3 = nn.MaxPool2d(2, 2)  # 10x22
-#         self.fc1 = nn.Linear(64 * 10 * 22, 1000)
-#         self.fc2 = nn.Linear(1000, NUM_CLASSES)
-#
-#     def forward(self, x):
-#         x = self.pool1(F.relu(self.conv1(x)))
-#         x = self.pool2(F.relu(self.conv2(x)))
-#         x = self.pool3(F.relu(self.conv3(x)))
-#         x = x.view(-1, 64 * 10 * 22)
-#         x = F.relu(self.fc1(x))
-#         x = self.fc2(x)
-#         return x
-#
-
-
-@MODEL_REGISTRY.register
-class AlexNet(nn.Module):
-    """AlexNet model."""
-
-    input_size = 100, 200
-    pretrained = True
-
-    def __init__(self):
-        super().__init__()
-        self.model = models.alexnet(weights="DEFAULT")
-        n = self.model.classifier[6].in_features
-        self.model.classifier[6] = nn.Linear(n, NUM_CLASSES)
-        self.params = {"head": list(self.model.classifier[6].parameters())}
-
-    def forward(self, x):
-        return self.model(x)
-
-
 @MODEL_REGISTRY.register
 class ResNet(nn.Module):
     """ResNet model."""
@@ -110,22 +31,22 @@ class ResNet(nn.Module):
         return self.model(x)
 
 
-@MODEL_REGISTRY.register
-class VGG(nn.Module):
-    """VGG model."""
-
-    input_size = 100, 200
-    pretrained = True
-
-    def __init__(self):
-        super().__init__()
-        self.model = models.vgg11_bn(weights="DEFAULT")
-        n = self.model.classifier[6].in_features
-        self.model.classifier[6] = nn.Linear(n, NUM_CLASSES)
-        self.params = {"head": list(self.model.classifier[6].parameters())}
-
-    def forward(self, x):
-        return self.model(x)
+# @MODEL_REGISTRY.register
+# class VGG(nn.Module):
+#     """VGG model."""
+#
+#     input_size = 100, 200
+#     pretrained = True
+#
+#     def __init__(self):
+#         super().__init__()
+#         self.model = models.vgg11_bn(weights="DEFAULT")
+#         n = self.model.classifier[6].in_features
+#         self.model.classifier[6] = nn.Linear(n, NUM_CLASSES)
+#         self.params = {"head": list(self.model.classifier[6].parameters())}
+#
+#     def forward(self, x):
+#         return self.model(x)
 
 
 @MODEL_REGISTRY.register
@@ -174,7 +95,7 @@ class VITB16(nn.Module):
 
 
 @MODEL_REGISTRY.register
-class VITL16(nn.Module):
+class SwinBV2(nn.Module):
     "Vision Transformer Large model."
 
     input_size = 224, 224
@@ -182,7 +103,7 @@ class VITL16(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.model = models.vit_l_16(weights="DEFAULT")
+        self.model = models.swin_v2_b(weights="DEFAULT")
         n = self.model.heads.head.in_features
         self.model.heads.head = nn.Linear(
             in_features=n, out_features=NUM_CLASSES, bias=True

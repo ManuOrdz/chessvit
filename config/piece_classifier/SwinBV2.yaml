@@ -2,10 +2,10 @@ DATASET:
   TRANSFORMS:
     CENTER_CROP: null
     RESIZE:
-    - 100
-    - 200
+    - 224
+    - 224
 TRAINING:
   MODEL:
-    NAME: AlexNet
+    NAME: SwinBV2
     REGISTRY: PIECE_CLASSIFIER
 _BASE_: config://piece_classifier/_base_pretrained.yaml
