@@ -17,6 +17,7 @@ def build_optimizer_from_config(optimizer_cfg: CN, params: typing.Iterable) -> t
         torch.optim.Optimizer: the built optimizer
     """
     optimizers = {
+        "AdamW" : lambda: torch.optim.AdamW(params, lr=optimizer_cfg.LEARNING_RATE),
         "Adam": lambda: torch.optim.Adam(params, lr=optimizer_cfg.LEARNING_RATE)
     }
     if optimizer_cfg.NAME not in optimizers:

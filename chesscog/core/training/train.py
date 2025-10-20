@@ -77,7 +77,7 @@ def train_model(
     # Move model to device
     device(model)
 
-    best_weights, best_accuracy, best_step = copy.deepcopy(model.state_dict()), 0.0, 0
+    best_weights, best_accuracy, best_step = {k: v.cpu() for k, v in model.state_dict().items()}, 0.0, 0
 
     criterion = nn.CrossEntropyLoss()
 
@@ -91,6 +91,9 @@ def train_model(
     loader = {mode: build_data_loader(cfg, datasets[mode], mode) for mode in modes}
     writer = {mode: SummaryWriter(run_dir / mode.value) for mode in modes}
     aggregator = {mode: StatsAggregator(classes) for mode in modes}
+
+    # Mixed precision scaler
+    scaler = torch.amp.GradScaler("cuda", enabled=torch.cuda.is_available())
 
     def log(step: int, loss: float, mode: Datasets):
         if mode == Datasets.TRAIN:
@@ -113,33 +116,33 @@ def train_model(
             # Reset gradients
             optimizer.zero_grad()
 
-            # Forward pass and compute loss
-            if is_inception and mode == Datasets.TRAIN:
-                # Special case for inception models
-                outputs, auxiliary_outputs = model(inputs)
-                loss1 = criterion(outputs, labels)
-                loss2 = criterion(auxiliary_outputs, labels)
-                loss = loss1 + 0.4 * loss2
-            else:
-                outputs = model(inputs)
-                loss = criterion(outputs, labels)
+            with torch.amp.autocast('cuda', enabled = torch.cuda.is_available()):
+                # Forward pass and compute loss
+                if is_inception and mode == Datasets.TRAIN:
+                    # Special case for inception models
+                    outputs, auxiliary_outputs = model(inputs)
+                    loss1 = criterion(outputs, labels)
+                    loss2 = criterion(auxiliary_outputs, labels)
+                    loss = loss1 + 0.4 * loss2
+                else:
+                    outputs = model(inputs)
+                    loss = criterion(outputs, labels)
 
             if mode == Datasets.TRAIN:
-                loss.backward()
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
 
         with torch.no_grad():
             aggregator[mode].add_batch(outputs, labels)
-
-        # Perform optimisation
-        if mode == Datasets.TRAIN:
-            optimizer.step()
 
         # Return
         return loss.item()
 
     step = 0
-    log_every_n = 100
+    log_every_n = max(100, len(loader[Datasets.TRAIN]) // 4)
 
+    perform_val_iteration = functools.partial(perform_iteration, mode=Datasets.VAL)
     # Ensure we're in training mode
     model.train()
 
@@ -175,23 +178,22 @@ def train_model(
                     # Validate entire validation dataset
                     model.eval()
                     aggregator[Datasets.VAL].reset()
+                    with torch.no_grad():
+                        val_losses = [perform_val_iteration(data) for data in loader[Datasets.VAL]]
 
-                    # Iterate entire val dataset
-                    perform_val_iteration = functools.partial(
-                        perform_iteration, mode=Datasets.VAL
-                    )
-                    val_losses = map(perform_val_iteration, loader[Datasets.VAL])
+                        #val_losses = map(perform_val_iteration, loader[Datasets.VAL])
 
-                    # Gather losses and log
+                        # Gather losses and log
                     val_loss = np.mean(list(val_losses))
                     log(step, val_loss, Datasets.VAL)
                     model.train()
+                    torch.cuda.empty_cache()
 
                 # Save weights if we get a better performance
                 accuracy = aggregator[Datasets.VAL].accuracy()
                 if accuracy >= best_accuracy:
                     best_accuracy = accuracy
-                    best_weights = copy.deepcopy(model.state_dict())
+                    best_weights = {k: v.cpu() for k, v in model.state_dict().items()}
                     best_step = step
 
                 # Get ready for next step
