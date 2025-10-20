@@ -140,6 +140,7 @@ def train_model(
         return loss.item()
 
     step = 0
+    epoch_number = 0
     log_every_n = 1000
 
     perform_val_iteration = functools.partial(perform_iteration, mode=Datasets.VAL)
@@ -162,7 +163,7 @@ def train_model(
         # Loop over epochs (passes over the whole dataset)
         for epoch in range(phase.EPOCHS):
 
-            print('EPOCH {}:'.format(epoch + 1))
+            print('EPOCH {}:'.format(epoch_number + 1))
 
             aggregator[Datasets.TRAIN].reset()
 
@@ -189,8 +190,9 @@ def train_model(
 
                 # Gather losses and log
             val_loss = np.mean(list(val_losses))
-            log(epoch, val_loss, Datasets.VAL)
-
+            log(epoch_number + 1, val_loss, Datasets.VAL)
+            
+            
             # Save weights if we get a better performance
             accuracy = aggregator[Datasets.VAL].accuracy()
             if accuracy >= best_accuracy:
@@ -200,6 +202,8 @@ def train_model(
 
             torch.cuda.empty_cache()
             model.train()
+
+            epoch_number +=1
 
 
     # Clean up
