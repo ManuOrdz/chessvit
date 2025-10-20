@@ -101,7 +101,6 @@ class SwinBV2(nn.Module):
 
     input_size = 224, 224
     pretrained = True
-    is_vit = True
 
     def __init__(self):
         super().__init__()
