@@ -8,4 +8,4 @@ TRAINING:
   MODEL:
     NAME: VITB16
     REGISTRY: PIECE_CLASSIFIER
-_BASE_: config://piece_classifier/_base_pretrained_vit.yaml
+_BASE_: config://piece_classifier/_base_pretrained.yaml
