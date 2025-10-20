@@ -106,7 +106,7 @@ class SwinBV2(nn.Module):
     def __init__(self):
         super().__init__()
         self.model = models.swin_v2_b(weights="DEFAULT")
-        n = self.model.heads.head.in_features
+        n = self.model.head.in_features
         self.model.heads.head = nn.Linear(
             in_features=n, out_features=NUM_CLASSES, bias=True
         )
