@@ -97,7 +97,7 @@ def train_model(
 
     def log(step: int, loss: float, mode: Datasets):
         if mode == Datasets.TRAIN:
-            logger.info(f"Step {step:5d}: loss {loss:.3f}")
+            logger.info(f"step {step:5d}: loss {loss:.3f}")
 
         w, agg = (x[mode] for x in (writer, aggregator))
 
@@ -140,7 +140,7 @@ def train_model(
         return loss.item()
 
     step = 0
-    log_every_n = max(100, len(loader[Datasets.TRAIN]) // 4)
+    log_every_n = 1000
 
     perform_val_iteration = functools.partial(perform_iteration, mode=Datasets.VAL)
     # Ensure we're in training mode
@@ -161,6 +161,9 @@ def train_model(
 
         # Loop over epochs (passes over the whole dataset)
         for epoch in range(phase.EPOCHS):
+
+            print('EPOCH {}:'.format(epoch + 1))
+
             aggregator[Datasets.TRAIN].reset()
 
             # Iterate the training set
@@ -175,29 +178,29 @@ def train_model(
                     aggregator[Datasets.TRAIN].reset()
                     losses = []
 
-                    # Validate entire validation dataset
-                    model.eval()
-                    aggregator[Datasets.VAL].reset()
-                    with torch.no_grad():
-                        val_losses = [perform_val_iteration(data) for data in loader[Datasets.VAL]]
-
-                        #val_losses = map(perform_val_iteration, loader[Datasets.VAL])
-
-                        # Gather losses and log
-                    val_loss = np.mean(list(val_losses))
-                    log(step, val_loss, Datasets.VAL)
-                    model.train()
-                    torch.cuda.empty_cache()
-
-                # Save weights if we get a better performance
-                accuracy = aggregator[Datasets.VAL].accuracy()
-                if accuracy >= best_accuracy:
-                    best_accuracy = accuracy
-                    best_weights = {k: v.cpu() for k, v in model.state_dict().items()}
-                    best_step = step
-
-                # Get ready for next step
+                 # Get ready for next step
                 step += 1
+
+         # Validate entire validation dataset
+            model.eval()
+            aggregator[Datasets.VAL].reset()
+            with torch.no_grad():
+                val_losses = [perform_val_iteration(data) for data in loader[Datasets.VAL]]
+
+                # Gather losses and log
+            val_loss = np.mean(list(val_losses))
+            log(epoch, val_loss, Datasets.VAL)
+
+            # Save weights if we get a better performance
+            accuracy = aggregator[Datasets.VAL].accuracy()
+            if accuracy >= best_accuracy:
+                best_accuracy = accuracy
+                best_weights = {k: v.cpu() for k, v in model.state_dict().items()}
+                best_step = step
+
+            torch.cuda.empty_cache()
+            model.train()
+
 
     # Clean up
     for w in writer.values():
