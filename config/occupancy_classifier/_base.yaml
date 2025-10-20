@@ -14,5 +14,5 @@ DATASET:
     - PARAMS: all
       EPOCHS: 3
       OPTIMIZER:
-        NAME: Adam
+        NAME: AdamW
         LEARNING_RATE: 0.001

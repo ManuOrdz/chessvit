@@ -26,5 +26,5 @@ TRAINING:
     - EPOCHS: 6
       OPTIMIZER:
         LEARNING_RATE: 0.001
-        NAME: Adam
+        NAME: AdamW
       PARAMS: all
