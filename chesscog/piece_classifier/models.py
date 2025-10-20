@@ -107,10 +107,10 @@ class SwinBV2(nn.Module):
         super().__init__()
         self.model = models.swin_v2_b(weights="DEFAULT")
         n = self.model.head.in_features
-        self.model.heads.head = nn.Linear(
+        self.model.head = nn.Linear(
             in_features=n, out_features=NUM_CLASSES, bias=True
         )
-        self.params = {"head": list(getattr(self.model.heads, "head").parameters())}
+        self.params = {"head": list(getattr(self.model, "head").parameters())}
 
     def forward(self, x):
         return self.model(x)
