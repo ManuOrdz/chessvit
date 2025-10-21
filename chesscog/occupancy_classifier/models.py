@@ -80,7 +80,7 @@ class SwinTV2(nn.Module):
         self.model.head = nn.Linear(
             in_features=n, out_features=NUM_CLASSES, bias=True
         )
-        self.params = {"head": list(getattr(self.model.heads, "head").parameters())}
+        self.params = {"head": list(getattr(self.model, "head").parameters())}
 
     def forward(self, x):
         return self.model(x)
