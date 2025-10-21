@@ -13,22 +13,22 @@ MODEL_REGISTRY = Registry()
 MODELS_REGISTRY.register_as("OCCUPANCY_CLASSIFIER")(MODEL_REGISTRY)
 
 
-@MODEL_REGISTRY.register
-class AlexNet(nn.Module):
-    """AlexNet model."""
-
-    input_size = 100, 100
-    pretrained = True
-
-    def __init__(self):
-        super().__init__()
-        self.model = models.alexnet(weights="DEFAULT")
-        n = self.model.classifier[6].in_features
-        self.model.classifier[6] = nn.Linear(n, NUM_CLASSES)
-        self.params = {"head": list(self.model.classifier[6].parameters())}
-
-    def forward(self, x):
-        return self.model(x)
+# @MODEL_REGISTRY.register
+# class AlexNet(nn.Module):
+#     """AlexNet model."""
+#
+#     input_size = 100, 100
+#     pretrained = True
+#
+#     def __init__(self):
+#         super().__init__()
+#         self.model = models.alexnet(weights="DEFAULT")
+#         n = self.model.classifier[6].in_features
+#         self.model.classifier[6] = nn.Linear(n, NUM_CLASSES)
+#         self.params = {"head": list(self.model.classifier[6].parameters())}
+#
+#     def forward(self, x):
+#         return self.model(x)
 
 
 @MODEL_REGISTRY.register
@@ -49,22 +49,22 @@ class ResNet(nn.Module):
         return self.model(x)
 
 
-@MODEL_REGISTRY.register
-class VGG(nn.Module):
-    """VGG model."""
-
-    input_size = 100, 100
-    pretrained = True
-
-    def __init__(self):
-        super().__init__()
-        self.model = models.vgg11_bn(weights="DEFAULT")
-        n = self.model.classifier[6].in_features
-        self.model.classifier[6] = nn.Linear(n, NUM_CLASSES)
-        self.params = {"head": list(self.model.classifier[6].parameters())}
-
-    def forward(self, x):
-        return self.model(x)
+# @MODEL_REGISTRY.register
+# class VGG(nn.Module):
+#     """VGG model."""
+#
+#     input_size = 100, 100
+#     pretrained = True
+#
+#     def __init__(self):
+#         super().__init__()
+#         self.model = models.vgg11_bn(weights="DEFAULT")
+#         n = self.model.classifier[6].in_features
+#         self.model.classifier[6] = nn.Linear(n, NUM_CLASSES)
+#         self.params = {"head": list(self.model.classifier[6].parameters())}
+#
+#     def forward(self, x):
+#         return self.model(x)
 
 @MODEL_REGISTRY.register
 class SwinTV2(nn.Module):
