@@ -45,26 +45,57 @@ def _csv(
     )
 
 
-def _csv_heading(classes: typing.List[str]) -> str:
+def _csv_segmentation(agg: StatsAggregator, model_name: str, mode: Datasets) -> str:
+    """Generate CSV row for segmentation metrics."""
+    return ",".join(
+        map(
+            str,
+            [
+                model_name,
+                mode.value,
+                agg.mean_iou(),
+                agg.mean_dice(),
+                agg.mean_pixel_accuracy(),
+                # *map(agg.iou, agg.classes),
+                # *map(agg.dice, agg.classes),
+            ],
+        )
+    )
+
+
+def _csv_heading(cfg: CN, classes: typing.List[str]) -> str:
     def class_headings(metric: str) -> typing.List[str]:
         return [f"{metric}/{c}" for c in classes]
 
-    return ",".join(
-        [
-            "model",
-            "dataset",
-            "parameters",
-            "accuracy",
-            *class_headings("precision"),
-            *class_headings("recall"),
-            *class_headings("f1_score"),
-            *(
-                f"confusion_matrix/{i}/{j}"
-                for i in range(len(classes))
-                for j in range(len(classes))
-            ),
-        ]
-    )
+    if getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
+        # 🧩 Segmentación semántica
+        # Métricas globales + métricas por clase (background, pieces)
+        return ",".join(
+            [
+                "model",
+                "dataset",
+                "mean_iou",
+                "mean_dice",
+                "mean_pixel_accuracy",
+            ]
+        )
+    else:
+        return ",".join(
+            [
+                "model",
+                "dataset",
+                "parameters",
+                "accuracy",
+                *class_headings("precision"),
+                *class_headings("recall"),
+                *class_headings("f1_score"),
+                *(
+                    f"confusion_matrix/{i}/{j}"
+                    for i in range(len(classes))
+                    for j in range(len(classes))
+                ),
+            ]
+        )
 
 
 def evaluate(
@@ -102,21 +133,35 @@ def evaluate(
 
     csv = []
     if include_heading:
-        csv.append(_csv_heading(classes))
+        csv.append(_csv_heading(cfg, classes))
     for mode, dataset in datasets.items():
         # Load dataset
         loader = build_data_loader(cfg, dataset, mode)
         # Compute statistics over whole dataset
         agg = StatsAggregator(classes)
         for images, labels in device(loader):
-            predictions = model(images)
+            preds = model(images)
+            if getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
+                if getattr(cfg.DATASET, "NUM_CLASSES", 1) == 1:
+                    predictions = (torch.sigmoid(preds["out"]) > 0.5).float()
+                else:
+                    predictions = torch.argmax(preds, dim=1)
+
+            else:
+                predictions = preds
+
             agg.add_batch(
                 predictions,
                 labels,
                 **(dict(inputs=images) if find_mistakes else dict()),
             )
 
-        csv.append(_csv(model, agg, model_name, mode))
+        if getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
+            csv.append(_csv_segmentation(agg, model_name, mode))
+
+        else:
+            csv.append(_csv(model, agg, model_name, mode))
+
         if find_mistakes:
             groundtruth, mistakes = zip(*sorted(agg.mistakes, key=lambda x: x[0]))
             imgs = torch.tensor(mistakes).permute((0, 2, 3, 1))

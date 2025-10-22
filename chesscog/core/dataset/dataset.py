@@ -24,11 +24,11 @@ class SegmentationDataset(torch.utils.data.Dataset):
         self.transforms = transforms
         self.mask_transforms = mask_transforms
 
-        self.classes = sorted([d.name for d in self.img_dir.iterdir() if d.is_dir()])
-
+        self.classes = sorted(["piece", "background"])
+        self.subfolders = sorted([d.name for d in self.img_dir.iterdir() if d.is_dir()])
         # Construir lista (imagen, máscara, clase_id)
         self.samples = []
-        for class_idx, class_name in enumerate(self.classes):
+        for class_idx, class_name in enumerate(self.subfolders):
             img_dir = self.img_dir / class_name
             mask_dir = self.mask_dir / class_name
             for img_path in img_dir.glob("*.*"):

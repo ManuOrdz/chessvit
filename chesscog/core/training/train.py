@@ -84,10 +84,7 @@ def train_model(
 
     # SEGMENTATION: elegir loss según tipo de tarea
     if getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
-        if getattr(cfg.DATASET, "NUM_CLASSES", 1) == 1:
-            criterion = nn.BCEWithLogitsLoss()
-        else:
-            criterion = nn.CrossEntropyLoss()
+        criterion = nn.BCEWithLogitsLoss()
     else:
         criterion = nn.CrossEntropyLoss()
 
@@ -114,21 +111,22 @@ def train_model(
         w.add_scalar("Loss", loss, step)
         w.add_scalar("Accuracy", agg.accuracy(), step)
         # Clasificación: métricas por clase
-        if getattr(cfg.TASK, "TYPE", "classification") == "classification":
-            for c in classes:
-                w.add_scalar(f"Precision/{c}", agg.precision(c), step)
-                w.add_scalar(f"Recall/{c}", agg.recall(c), step)
-                w.add_scalar(f"F1 score/{c}", agg.f1_score(c), step)
+        for c in classes:
+            w.add_scalar(f"Precision/{c}", agg.precision(c), step)
+            w.add_scalar(f"Recall/{c}", agg.recall(c), step)
+            w.add_scalar(f"F1 score/{c}", agg.f1_score(c), step)
 
         # Segmentación: IoU, Dice y Pixel Accuracy
-        elif getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
+        if getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
             mean_iou = agg.mean_iou()
             mean_dice = agg.mean_dice()
-            mean_pixacc = agg.mean_pixel_accuracy()
+            mean_pixacc = agg.pixel_accuracy()
+            balanced_accuracy = agg.balanced_accuracy()
 
             w.add_scalar("Segmentation/Mean_IoU", mean_iou, step)
             w.add_scalar("Segmentation/Mean_Dice", mean_dice, step)
             w.add_scalar("Segmentation/Pixel_Accuracy", mean_pixacc, step)
+            w.add_scalar("Segmentation/Balanced_accuracy", balanced_accuracy, step)
 
             # logger.info(
             #     f"[{mode.value}] IoU={mean_iou:.4f}, Dice={mean_dice:.4f}, PixelAcc={mean_pixacc:.4f}"
@@ -177,11 +175,8 @@ def train_model(
 
         with torch.no_grad():
             if getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
-                if getattr(cfg.DATASET, "NUM_CLASSES", 1) == 1:
-                    preds = (torch.sigmoid(outputs) > 0.5).float()
-                else:
-                    preds = torch.argmax(outputs, dim=1)
-                aggregator[mode].add_batch(preds, labels)
+                preds = (torch.sigmoid(outputs) > 0.5).float()
+                aggregator[mode].add_batch_segmentation(preds, labels)
             else:
                 aggregator[mode].add_batch(outputs, labels)
         # Return
@@ -242,11 +237,8 @@ def train_model(
             val_loss = np.mean(list(val_losses))
             log(epoch_number + 1, val_loss, Datasets.VAL)
 
-            if getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
-                accuracy = aggregator[Datasets.VAL].mean_iou()
-            else:
-                # Save weights if we get a better performance
-                accuracy = aggregator[Datasets.VAL].accuracy()
+            # Save weights if we get a better performance
+            accuracy = aggregator[Datasets.VAL].accuracy()
 
             if accuracy >= best_accuracy:
                 best_accuracy = accuracy

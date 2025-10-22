@@ -5,11 +5,11 @@ TRAINING:
     - EPOCHS: 2
       OPTIMIZER:
         LEARNING_RATE: 0.001
-        NAME: Adam
+        NAME: AdamW
       PARAMS: head
     - EPOCHS: 4
       OPTIMIZER:
         LEARNING_RATE: 0.0001
-        NAME: Adam
+        NAME: AdamW
       PARAMS: all
 

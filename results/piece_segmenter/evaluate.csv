@@ -1,0 +1,2 @@
+model,dataset,mean_iou,mean_dice,mean_pixel_accuracy
+DLResNet,test,0.9699753725425505,0.9788960076513744,0.00996102328972641
