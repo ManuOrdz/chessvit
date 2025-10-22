@@ -242,8 +242,12 @@ def train_model(
             val_loss = np.mean(list(val_losses))
             log(epoch_number + 1, val_loss, Datasets.VAL)
 
-            # Save weights if we get a better performance
-            accuracy = aggregator[Datasets.VAL].accuracy()
+            if getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
+                accuracy = aggregator[Datasets.VAL].mean_iou()
+            else:
+                # Save weights if we get a better performance
+                accuracy = aggregator[Datasets.VAL].accuracy()
+
             if accuracy >= best_accuracy:
                 best_accuracy = accuracy
                 best_weights = {k: v.cpu() for k, v in model.state_dict().items()}
