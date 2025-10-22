@@ -36,3 +36,6 @@ TRAINING:
       OPTIMIZER:
         NAME: Adam
         LEARNING_RATE: 0.001
+
+TASK:
+  TYPE: classification

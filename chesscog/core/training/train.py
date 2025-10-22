@@ -1,6 +1,5 @@
 """Main implementation of model training."""
 
-import copy
 import functools
 import logging
 import shutil
@@ -77,9 +76,20 @@ def train_model(
     # Move model to device
     device(model)
 
-    best_weights, best_accuracy, best_step = {k: v.cpu() for k, v in model.state_dict().items()}, 0.0, 0
+    best_weights, best_accuracy, best_step = (
+        {k: v.cpu() for k, v in model.state_dict().items()},
+        0.0,
+        0,
+    )
 
-    criterion = nn.CrossEntropyLoss()
+    # SEGMENTATION: elegir loss según tipo de tarea
+    if getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
+        if getattr(cfg.DATASET, "NUM_CLASSES", 1) == 1:
+            criterion = nn.BCEWithLogitsLoss()
+        else:
+            criterion = nn.CrossEntropyLoss()
+    else:
+        criterion = nn.CrossEntropyLoss()
 
     modes = {Datasets.TRAIN, Datasets.VAL}
     if eval_on_train:
@@ -103,10 +113,26 @@ def train_model(
 
         w.add_scalar("Loss", loss, step)
         w.add_scalar("Accuracy", agg.accuracy(), step)
-        for c in classes:
-            w.add_scalar(f"Precision/{c}", agg.precision(c), step)
-            w.add_scalar(f"Recall/{c}", agg.recall(c), step)
-            w.add_scalar(f"F1 score/{c}", agg.f1_score(c), step)
+        # Clasificación: métricas por clase
+        if getattr(cfg.TASK, "TYPE", "classification") == "classification":
+            for c in classes:
+                w.add_scalar(f"Precision/{c}", agg.precision(c), step)
+                w.add_scalar(f"Recall/{c}", agg.recall(c), step)
+                w.add_scalar(f"F1 score/{c}", agg.f1_score(c), step)
+
+        # Segmentación: IoU, Dice y Pixel Accuracy
+        elif getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
+            mean_iou = agg.mean_iou()
+            mean_dice = agg.mean_dice()
+            mean_pixacc = agg.mean_pixel_accuracy()
+
+            w.add_scalar("Segmentation/Mean_IoU", mean_iou, step)
+            w.add_scalar("Segmentation/Mean_Dice", mean_dice, step)
+            w.add_scalar("Segmentation/Pixel_Accuracy", mean_pixacc, step)
+
+            # logger.info(
+            #     f"[{mode.value}] IoU={mean_iou:.4f}, Dice={mean_dice:.4f}, PixelAcc={mean_pixacc:.4f}"
+            # )
 
     def perform_iteration(
         data: typing.Tuple[torch.Tensor, torch.Tensor], mode: Datasets
@@ -116,7 +142,7 @@ def train_model(
             # Reset gradients
             optimizer.zero_grad()
 
-            with torch.amp.autocast('cuda', enabled = torch.cuda.is_available()):
+            with torch.amp.autocast("cuda", enabled=torch.cuda.is_available()):
                 # Forward pass and compute loss
                 if is_inception and mode == Datasets.TRAIN:
                     # Special case for inception models
@@ -126,16 +152,38 @@ def train_model(
                     loss = loss1 + 0.4 * loss2
                 else:
                     outputs = model(inputs)
-                    loss = criterion(outputs, labels)
 
+                    # 🧠 Compatibilidad con modelos de segmentación (torchvision) que devuelven OrderedDict
+                    if isinstance(
+                        outputs, (dict, torch.nn.modules.container.OrderedDict)
+                    ):
+                        if "out" in outputs:
+                            outputs = outputs["out"]
+                        else:
+                            outputs = list(outputs.values())[
+                                0
+                            ]  # toma el primer tensor disponible
+
+                # 🔹 Calcular la pérdida
+                if getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
+                    # CrossEntropy o BCEWithLogitsLoss según config
+                    loss = criterion(outputs, labels.float())
+                else:
+                    loss = criterion(outputs, labels)
             if mode == Datasets.TRAIN:
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
 
         with torch.no_grad():
-            aggregator[mode].add_batch(outputs, labels)
-
+            if getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
+                if getattr(cfg.DATASET, "NUM_CLASSES", 1) == 1:
+                    preds = (torch.sigmoid(outputs) > 0.5).float()
+                else:
+                    preds = torch.argmax(outputs, dim=1)
+                aggregator[mode].add_batch(preds, labels)
+            else:
+                aggregator[mode].add_batch(outputs, labels)
         # Return
         return loss.item()
 
@@ -163,7 +211,7 @@ def train_model(
         # Loop over epochs (passes over the whole dataset)
         for epoch in range(phase.EPOCHS):
 
-            print('EPOCH {}:'.format(epoch_number + 1))
+            print("EPOCH {}:".format(epoch_number + 1))
 
             aggregator[Datasets.TRAIN].reset()
 
@@ -179,20 +227,21 @@ def train_model(
                     aggregator[Datasets.TRAIN].reset()
                     losses = []
 
-                 # Get ready for next step
+                # Get ready for next step
                 step += 1
 
-         # Validate entire validation dataset
+            # Validate entire validation dataset
             model.eval()
             aggregator[Datasets.VAL].reset()
             with torch.no_grad():
-                val_losses = [perform_val_iteration(data) for data in loader[Datasets.VAL]]
+                val_losses = [
+                    perform_val_iteration(data) for data in loader[Datasets.VAL]
+                ]
 
                 # Gather losses and log
             val_loss = np.mean(list(val_losses))
             log(epoch_number + 1, val_loss, Datasets.VAL)
-            
-            
+
             # Save weights if we get a better performance
             accuracy = aggregator[Datasets.VAL].accuracy()
             if accuracy >= best_accuracy:
@@ -203,8 +252,7 @@ def train_model(
             torch.cuda.empty_cache()
             model.train()
 
-            epoch_number +=1
-
+            epoch_number += 1
 
     # Clean up
     for w in writer.values():

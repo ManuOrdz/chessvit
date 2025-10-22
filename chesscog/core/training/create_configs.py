@@ -10,7 +10,7 @@ def create_configs(classifier: str, include_centercrop: bool = False):
     """Create the YAML configuration files for all registered models for a classifier.
 
     Args:
-        classifier (str): the classifier (either `"occupancy_classifier"` or `"piece_classifier"`)
+        classifier (str): the classifier (either `"occupancy_classifier"` or `"piece_classifier"` or `"piece_segmenter"`)
         include_centercrop (bool, optional): whether to create two configs per model, one including center crop and one not. Defaults to False.
     """
     config_dir = URI("config://") / classifier
@@ -21,9 +21,10 @@ def create_configs(classifier: str, include_centercrop: bool = False):
             f.unlink()
 
     for name, model in MODELS_REGISTRY[classifier.upper()].items():
-        for center_crop in ({True, False} if include_centercrop else {False}):
-            config_file = config_dir / \
-                (name + ("_centercrop" if center_crop else "") + ".yaml")
+        for center_crop in {True, False} if include_centercrop else {False}:
+            config_file = config_dir / (
+                name + ("_centercrop" if center_crop else "") + ".yaml"
+            )
             logging.info(f"Writing configuration file {config_file}")
 
             size = model.input_size
@@ -36,8 +37,7 @@ def create_configs(classifier: str, include_centercrop: bool = False):
                 C._BASE_ = f"config://{classifier}/_base{suffix}.yaml"
             C.DATASET = CN()
             C.DATASET.TRANSFORMS = CN()
-            C.DATASET.TRANSFORMS.CENTER_CROP = (50, 50) \
-                if center_crop else None
+            C.DATASET.TRANSFORMS.CENTER_CROP = (50, 50) if center_crop else None
             C.DATASET.TRANSFORMS.RESIZE = size
             C.TRAINING = CN()
             C.TRAINING.MODEL = CN()
