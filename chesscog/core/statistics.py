@@ -58,6 +58,7 @@ class StatsAggregator:
     ):
         """Accumulate statistics for a segmentation task (binary or multi-class)."""
         preds = outputs.cpu().numpy()
+        labels = labels.cpu().numpy()
 
         # --- Calcular matriz de confusión ---
         for predicted_class, _ in enumerate(self.classes):
