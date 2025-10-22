@@ -184,10 +184,4 @@ def build_mask_transforms(cfg: CN, mode: Datasets) -> typing.Callable:
     # 🔹 Convertir a tensor (sin normalizar)
     t.append(T.PILToTensor())  # Mantiene tipo uint8
 
-    # 🔹 Asegurar tipo long (para CrossEntropyLoss)
-    def _to_long(tensor):
-        return tensor.long()  # elimina canal [1, H, W] → [H, W]
-
-    t.append(_to_long)
-
     return T.Compose(t)
