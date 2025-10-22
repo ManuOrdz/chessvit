@@ -48,6 +48,7 @@ class SegmentationDataset(torch.utils.data.Dataset):
         image = self.transforms(image)
         mask = self.mask_transforms(mask)
 
+        mask = mask / 255.0
         return image, mask
 
 

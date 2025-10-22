@@ -168,6 +168,10 @@ def train_model(
                 if getattr(cfg.TASK, "TYPE", "classification") == "segmentation":
                     # CrossEntropy o BCEWithLogitsLoss según config
                     loss = criterion(outputs, labels.float())
+
+                    print(outputs.shape, outputs.min().item(), outputs.max().item())
+                    print(labels.shape, labels.unique())
+                    print(labels.dtype)
                 else:
                     loss = criterion(outputs, labels)
             if mode == Datasets.TRAIN:
