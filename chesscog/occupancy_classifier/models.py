@@ -67,7 +67,7 @@ class ResNet(nn.Module):
 #         return self.model(x)
 
 @MODEL_REGISTRY.register
-class SwinTV2(nn.Module):
+class MaxVit(nn.Module):
     "Vision Transformer Large model."
 
     input_size = 224, 224
@@ -75,12 +75,13 @@ class SwinTV2(nn.Module):
 
     def __init__(self):
         super().__init__()
-        self.model = models.swin_v2_t(weights="DEFAULT")
-        n = self.model.head.in_features
-        self.model.head = nn.Linear(
+        self.model = models.maxvit_t(weights="DEFAULT")
+        n = self.model.classifier[5].in_features
+        self.model.classifier[5] = nn.Linear(
             in_features=n, out_features=NUM_CLASSES, bias=True
         )
-        self.params = {"head": list(getattr(self.model, "head").parameters())}
+        self.params = {"head": list(self.model.classifier[5].parameters())}
 
     def forward(self, x):
         return self.model(x)
+

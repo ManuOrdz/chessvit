@@ -6,6 +6,6 @@ DATASET:
     - 224
 TRAINING:
   MODEL:
-    NAME: SwinTV2
+    NAME: MaxVit
     REGISTRY: OCCUPANCY_CLASSIFIER
 _BASE_: config://occupancy_classifier/_base_pretrained.yaml
